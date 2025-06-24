@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -13,28 +14,48 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _confirmController = TextEditingController();
   bool _isLoading = false;
 
+final supabase = Supabase.instance.client;
+
   void _register() async {
-    final email = _emailController.text.trim();
-    final password = _passwordController.text;
-    final confirm = _confirmController.text;
+  final email = _emailController.text.trim();
+  final password = _passwordController.text;
+  final confirm = _confirmController.text;
 
-    if (email.isEmpty || password.isEmpty || confirm.isEmpty) {
-      _showError('Por favor, completa todos los campos');
-      return;
+  if (email.isEmpty || password.isEmpty || confirm.isEmpty) {
+    _showError('Por favor, completa todos los campos');
+    return;
+  }
+
+  if (password != confirm) {
+    _showError('Las contraseñas no coinciden');
+    return;
+  }
+
+  setState(() => _isLoading = true);
+
+  try {
+    final response = await supabase.auth.signUp(
+      email: email,
+      password: password,
+    );
+
+    if (response.user != null) {
+      debugPrint('✅ Usuario registrado: ${response.user!.email}');
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Cuenta creada. Revisa tu correo para verificar.'),
+      ));
+      Navigator.pop(context); // Vuelve al login
+    } else {
+      _showError('No se pudo crear la cuenta. Intenta nuevamente.');
     }
-
-    if (password != confirm) {
-      _showError('Las contraseñas no coinciden');
-      return;
-    }
-
-    setState(() => _isLoading = true);
-
-    await Future.delayed(const Duration(seconds: 2)); // temporal
-    debugPrint('Registro con $email / $password');
-
+  } on AuthException catch (e) {
+    _showError('Error: ${e.message}');
+  } catch (e) {
+    _showError('Error inesperado: ${e.toString()}');
+  } finally {
     setState(() => _isLoading = false);
   }
+}
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
