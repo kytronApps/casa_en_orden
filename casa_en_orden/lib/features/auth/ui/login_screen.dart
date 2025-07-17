@@ -3,7 +3,7 @@ import 'register_screen.dart';
 import 'package:casa_en_orden/features/setup_house/ui/select_house_type_screen.dart';
 import 'package:casa_en_orden/services/auth_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:casa_en_orden/features/main_menu/ui/main_menu_screen.dart';
+import 'package:casa_en_orden/features/auth/ui/main_menu_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
