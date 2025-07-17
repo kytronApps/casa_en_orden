@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'register_screen.dart';
+import 'package:casa_en_orden/features/setup_house/ui/select_house_type_screen.dart';
+import 'package:casa_en_orden/services/auth_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:casa_en_orden/features/main_menu/ui/main_menu_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -24,14 +28,45 @@ class _LoginScreenState extends State<LoginScreen> {
 
     setState(() => _isLoading = true);
 
-    await Future.delayed(const Duration(seconds: 2)); // temporal
-    debugPrint('Login con $email / $password');
+    final result = await AuthService().login(email: email, password: password);
 
     setState(() => _isLoading = false);
+
+
+    if (result == null) {
+      _showError('Error al iniciar sesión. Revisa tus credenciales.');
+      return;
+    }
+
+    // Verifica si el usuario tiene perfiles
+    final userId = result.user?.id;
+
+    if (userId == null) {
+      _showError('Error al obtener el ID del usuario');
+      return;
+    }
+
+    final userProfiles = await Supabase.instance.client
+        .from('cleaning_profiles')
+        .select()
+        .eq('user_id', userId);
+
+    if (userProfiles != null && userProfiles.isNotEmpty) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const MainMenuScreen()),
+      );
+    } else {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const SelectHouseTypeScreen()),
+      );
+    }
   }
 
   void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -74,14 +109,15 @@ class _LoginScreenState extends State<LoginScreen> {
                           child: const Center(child: Text('Iniciar sesión')),
                         ),
                   TextButton(
-  onPressed: () {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const RegisterScreen()),
-    );
-  },
-  child: const Text('¿No tienes cuenta? Regístrate'),
-),
+                    onPressed: () {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const RegisterScreen()),
+                      );
+                    },
+                    child: const Text('¿No tienes cuenta? Regístrate'),
+                  ),
                 ],
               ),
             ),
