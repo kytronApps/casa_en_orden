@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:casa_en_orden/features/auth/ui/main_menu_screen.dart';
+
 
 class CalendarGenerationScreen extends StatelessWidget {
   const CalendarGenerationScreen({super.key});
@@ -12,8 +14,12 @@ class CalendarGenerationScreen extends StatelessWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Calendario creado en tu perfil')), 
       );
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const MainMenuScreen()),
+        (route) => false,
+      );
     }
-    // Aquí podrías redirigir al panel principal o al historial
   }
 
   @override
@@ -53,10 +59,17 @@ class CalendarGenerationScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            OutlinedButton(
-              onPressed: () => _finalStep(context, false),
-              child: const Text('No añadir al calendario del móvil'),
-            )
+OutlinedButton(
+  onPressed: () {
+    _finalStep(context, false);
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => const MainMenuScreen()),
+      (route) => false,
+    );
+  },
+  child: const Text('No añadir al calendario del móvil'),
+)
           ],
         ),
       ),
