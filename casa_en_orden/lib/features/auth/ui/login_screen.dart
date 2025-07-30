@@ -51,7 +51,7 @@ class _LoginScreenState extends State<LoginScreen> {
         .select()
         .eq('user_id', userId);
 
-    if (userProfiles != null && userProfiles.isNotEmpty) {
+    if (userProfiles.isNotEmpty) {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const MainMenuScreen()),

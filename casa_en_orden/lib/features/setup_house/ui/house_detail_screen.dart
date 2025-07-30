@@ -1,7 +1,6 @@
 import 'package:casa_en_orden/features/setup_house/ui/family_members_screen.dart';
 import 'package:casa_en_orden/features/setup_house/ui/house_info_screen.dart';
 import 'package:flutter/material.dart';
-import 'package:casa_en_orden/features/setup_house/ui/next_step_screen.dart';
 
 class HouseDetailScreen extends StatelessWidget {
   const HouseDetailScreen({super.key});
