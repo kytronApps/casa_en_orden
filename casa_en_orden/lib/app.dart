@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'features/auth/ui/login_screen.dart';
+import 'features/auth/ui/main_menu_screen.dart'; // asegúrate que existe
 
 class CasaEnOrdenApp extends StatelessWidget {
   const CasaEnOrdenApp({super.key});
@@ -30,11 +31,14 @@ class CasaEnOrdenApp extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
             ),
             padding: const EdgeInsets.symmetric(vertical: 16),
-            textStyle: const TextStyle(fontSize: 16),
           ),
         ),
       ),
-      home: const LoginScreen(),
+      initialRoute: '/login',
+      routes: {
+        '/login': (_) => const LoginScreen(),
+        '/main': (_) => const MainMenuScreen(),
+      },
     );
   }
 }
