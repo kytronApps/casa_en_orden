@@ -86,7 +86,17 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                 MaterialPageRoute(builder: (_) => const HouseInfoScreen()),
               );
             },
-          )
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: 'Cerrar sesión',
+            onPressed: () async {
+              await Supabase.instance.client.auth.signOut();
+              if (context.mounted) {
+                Navigator.of(context).pushReplacementNamed('/login');
+              }
+            },
+          ),
         ],
       ),
       drawer: _profiles.length > 1
