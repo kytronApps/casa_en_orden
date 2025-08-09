@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'features/auth/ui/login_screen.dart';
+import 'features/auth/ui/register_screen.dart';
 import 'features/auth/ui/main_menu_screen.dart'; // asegúrate que existe
 
 class CasaEnOrdenApp extends StatelessWidget {
@@ -37,6 +38,7 @@ class CasaEnOrdenApp extends StatelessWidget {
       initialRoute: '/login',
       routes: {
         '/login': (_) => const LoginScreen(),
+        '/register': (_) => const RegisterScreen(),
         '/main': (_) => const MainMenuScreen(),
       },
     );
