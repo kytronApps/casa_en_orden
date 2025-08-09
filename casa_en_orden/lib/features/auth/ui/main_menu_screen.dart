@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:casa_en_orden/features/setup_house/ui/house_info_screen.dart';
@@ -16,6 +17,18 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
   Map<String, dynamic>? _pinnedProfile;
   Map<String, dynamic>? _selectedProfile;
   bool _isLoading = true;
+
+  // Controllers used in the edit bottom sheet
+  final _nameCtrl = TextEditingController();
+  final _roomsCtrl = TextEditingController();
+  final _bathsCtrl = TextEditingController();
+  final _floorsCtrl = TextEditingController();
+  final _sizeCtrl = TextEditingController();
+  final _zonesCtrl = TextEditingController();
+  final _floorTypeCtrl = TextEditingController();
+  bool _hasGardenTmp = false;
+  bool _hasPetsTmp = false;
+  bool _hasMembersTmp = false;
 
   @override
   void initState() {
@@ -70,6 +83,204 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
   void _createNewProfile() {
     // Navegar a la pantalla de creación
     // Navigator.push(...);
+  }
+
+  Future<void> _openEditProfileSheet(Map<String, dynamic> profile) async {
+    final house = Map<String, dynamic>.from(profile['house'] ?? {});
+
+    _nameCtrl.text = profile['name'] ?? '';
+    _roomsCtrl.text = (house['rooms'] ?? '').toString();
+    _bathsCtrl.text = (house['bathrooms'] ?? '').toString();
+    _floorsCtrl.text = (house['floors'] ?? '').toString();
+    _sizeCtrl.text = (house['size'] ?? '').toString();
+    _zonesCtrl.text = (house['special_zones'] ?? '').toString();
+    _floorTypeCtrl.text = (house['floor_type'] ?? '').toString();
+    _hasGardenTmp = (house['has_garden'] ?? false) as bool;
+    _hasPetsTmp = (house['has_pets'] ?? false) as bool;
+    _hasMembersTmp = (house['has_members'] ?? false) as bool;
+
+    final theme = Theme.of(context);
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 16,
+            right: 16,
+            top: 12,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.outlineVariant,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                Text('Editar perfil', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _nameCtrl,
+                  decoration: const InputDecoration(labelText: 'Nombre del perfil'),
+                ),
+                const SizedBox(height: 12),
+                Row(children: [
+                  Expanded(child: TextField(controller: _roomsCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Habitaciones'))),
+                  const SizedBox(width: 12),
+                  Expanded(child: TextField(controller: _bathsCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Baños'))),
+                ]),
+                const SizedBox(height: 12),
+                Row(children: [
+                  Expanded(child: TextField(controller: _floorsCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Plantas'))),
+                  const SizedBox(width: 12),
+                  Expanded(child: TextField(controller: _sizeCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Tamaño (m²)'))),
+                ]),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _zonesCtrl,
+                  decoration: const InputDecoration(labelText: 'Zonas especiales'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _floorTypeCtrl,
+                  decoration: const InputDecoration(labelText: 'Tipo de suelo'),
+                ),
+                const SizedBox(height: 8),
+                SwitchListTile(
+                  value: _hasGardenTmp,
+                  onChanged: (v) => setState(() => _hasGardenTmp = v),
+                  title: const Text('¿Tiene jardín?'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+                SwitchListTile(
+                  value: _hasPetsTmp,
+                  onChanged: (v) => setState(() => _hasPetsTmp = v),
+                  title: const Text('¿Hay mascotas?'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+                SwitchListTile(
+                  value: _hasMembersTmp,
+                  onChanged: (v) => setState(() => _hasMembersTmp = v),
+                  title: const Text('¿Tiene integrantes?'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          // Guardar cambios
+                          try {
+                            await Supabase.instance.client
+                                .from('houses')
+                                .update({
+                                  'rooms': int.tryParse(_roomsCtrl.text) ?? house['rooms'],
+                                  'bathrooms': int.tryParse(_bathsCtrl.text) ?? house['bathrooms'],
+                                  'floors': int.tryParse(_floorsCtrl.text) ?? house['floors'],
+                                  'size': int.tryParse(_sizeCtrl.text) ?? house['size'],
+                                  'special_zones': _zonesCtrl.text.trim(),
+                                  'floor_type': _floorTypeCtrl.text.trim(),
+                                  'has_garden': _hasGardenTmp,
+                                  'has_pets': _hasPetsTmp,
+                                  'has_members': _hasMembersTmp,
+                                })
+                                .eq('id', profile['house_id']);
+
+                            await Supabase.instance.client
+                                .from('cleaning_profiles')
+                                .update({'name': _nameCtrl.text.trim()})
+                                .eq('id', profile['id']);
+
+                            if (mounted) Navigator.pop(ctx);
+                            await _fetchProfiles();
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Perfil actualizado')),
+                              );
+                            }
+                          } catch (e) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Error al actualizar: $e')),
+                              );
+                            }
+                          }
+                        },
+                        icon: const Icon(Icons.save),
+                        label: const Text('Guardar cambios'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    IconButton(
+                      onPressed: () async {
+                        final confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (dctx) => AlertDialog(
+                            title: const Text('Eliminar perfil'),
+                            content: const Text('Esta acción eliminará el perfil y su casa asociada. ¿Continuar?'),
+                            actions: [
+                              TextButton(onPressed: () => Navigator.pop(dctx, false), child: const Text('Cancelar')),
+                              FilledButton(onPressed: () => Navigator.pop(dctx, true), child: const Text('Eliminar')),
+                            ],
+                          ),
+                        );
+                        if (confirm != true) return;
+                        try {
+                          await Supabase.instance.client
+                              .from('cleaning_profiles')
+                              .delete()
+                              .eq('id', profile['id']);
+                          await Supabase.instance.client
+                              .from('houses')
+                              .delete()
+                              .eq('id', profile['house_id']);
+                          if (mounted) Navigator.pop(ctx);
+                          await _fetchProfiles();
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Error al eliminar: $e')),
+                            );
+                          }
+                        }
+                      },
+                      tooltip: 'Eliminar',
+                      icon: const Icon(Icons.delete_outline, color: Colors.red),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _roomsCtrl.dispose();
+    _bathsCtrl.dispose();
+    _floorsCtrl.dispose();
+    _sizeCtrl.dispose();
+    _zonesCtrl.dispose();
+    _floorTypeCtrl.dispose();
+    super.dispose();
   }
 
   @override
@@ -136,64 +347,86 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
           : _profiles.isEmpty
               ? const Center(child: Text('No tienes perfiles de limpieza'))
               : (_pinnedProfile != null || _selectedProfile != null)
-                  ? ListView(
-                      padding: const EdgeInsets.all(16),
-                      children: [
-                        ListTile(
-                          title: Text(
-                            (_pinnedProfile ?? _selectedProfile)!['name'] ?? 'Perfil sin nombre',
-                          ),
-                          subtitle: Text(
-                            _pinnedProfile != null
-                                ? 'Perfil anclado. Haz clic para ver detalles'
-                                : 'Perfil seleccionado. Haz clic para ver detalles',
-                          ),
-                          onTap: () {
-                            // Acción al hacer clic en el perfil mostrado
-                          },
-                        ),
-                        // Aquí puedes añadir más detalles del perfil
-                        const SizedBox(height: 16),
-                        Text("Detalles del perfil:", style: TextStyle(fontWeight: FontWeight.bold)),
-                        Builder(
-                          builder: (context) {
-                            final profile = (_pinnedProfile ?? _selectedProfile);
-                            final house = profile?['house'] ?? {};
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text("Habitaciones: ${house['rooms'] ?? 'N/A'}"),
-                                Text("Baños: ${house['bathrooms'] ?? 'N/A'}"),
-                                Text("Tamaño: ${house['size'] ?? 'N/A'} m²"),
-                                Text("Zonas especiales: ${house['special_zones'] ?? 'N/A'}"),
-                                Text("Tipo de suelo: ${house['floor_type'] ?? 'N/A'}"),
-                                Text("¿Tiene integrantes?: ${(house['has_members'] ?? false) ? 'Sí' : 'No'}"),
-                                const SizedBox(height: 16),
-                                // Aquí podrías añadir información del calendario si se desea incluir luego.
-                                // Por ejemplo, consultar una tabla 'calendars' asociada y mostrar eventos.
-                                if (profile?['user_id'] == user?.id)
-                                  ElevatedButton.icon(
-                                    onPressed: () {
-                                      // Navegar a la pantalla de edición del perfil
-                                      // Navigator.push(context, MaterialPageRoute(builder: (_) => EditProfileScreen(profile: profile)));
-                                    },
-                                    icon: Icon(Icons.edit),
-                                    label: Text('Editar perfil'),
+                  ? RefreshIndicator(
+                      onRefresh: _fetchProfiles,
+                      child: ListView(
+                        padding: const EdgeInsets.all(16),
+                        children: [
+                          Card(
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            elevation: 0,
+                            color: Theme.of(context).colorScheme.surface,
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  ListTile(
+                                    contentPadding: EdgeInsets.zero,
+                                    title: Text(
+                                      (_pinnedProfile ?? _selectedProfile)!['name'] ?? 'Perfil sin nombre',
+                                      style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
+                                    ),
+                                    subtitle: Text(
+                                      _pinnedProfile != null
+                                          ? 'Perfil anclado. Haz clic para ver detalles'
+                                          : 'Perfil seleccionado. Haz clic para ver detalles',
+                                    ),
+                                    leading: CircleAvatar(
+                                      backgroundColor: Colors.teal.withOpacity(.15),
+                                      child: const Icon(Icons.home, color: Colors.teal),
+                                    ),
+                                    trailing: (
+                                      (_pinnedProfile ?? _selectedProfile)?['user_id'] == user?.id
+                                    )
+                                        ? FilledButton.icon(
+                                            onPressed: () => _openEditProfileSheet((_pinnedProfile ?? _selectedProfile)!),
+                                            icon: const Icon(Icons.edit, size: 18),
+                                            label: const Text('Editar'),
+                                          )
+                                        : null,
                                   ),
-                                if (profile?['user_id'] == user?.id)
-                                  ElevatedButton.icon(
-                                    onPressed: () {
-                                      // Navegar a la pantalla de gestión de integrantes
-                                      // Navigator.push(context, MaterialPageRoute(builder: (_) => ManageMembersScreen(profileId: profile['id'])));
+                                  const Divider(height: 24),
+                                  Builder(
+                                    builder: (context) {
+                                      final profile = (_pinnedProfile ?? _selectedProfile);
+                                      final house = profile?['house'] ?? {};
+                                      Widget infoRow(IconData icon, String label, String value) {
+                                        return Padding(
+                                          padding: const EdgeInsets.symmetric(vertical: 6),
+                                          child: Row(
+                                            children: [
+                                              Icon(icon, size: 20, color: Colors.teal),
+                                              const SizedBox(width: 12),
+                                              Expanded(child: Text(label, style: Theme.of(context).textTheme.bodyMedium)),
+                                              Text(value, style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
+                                            ],
+                                          ),
+                                        );
+                                      }
+
+                                      return Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text('Detalles del perfil', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+                                          const SizedBox(height: 8),
+                                          infoRow(Icons.meeting_room, 'Habitaciones', '${house['rooms'] ?? 'N/A'}'),
+                                          infoRow(Icons.bathtub_outlined, 'Baños', '${house['bathrooms'] ?? 'N/A'}'),
+                                          infoRow(Icons.stairs_outlined, 'Plantas', '${house['floors'] ?? 'N/A'}'),
+                                          infoRow(Icons.square_foot, 'Tamaño', '${house['size'] ?? 'N/A'} m²'),
+                                          infoRow(Icons.chair_outlined, 'Zonas especiales', '${house['special_zones'] ?? 'N/A'}'),
+                                          infoRow(Icons.texture, 'Tipo de suelo', '${house['floor_type'] ?? 'N/A'}'),
+                                          infoRow(Icons.groups_2_outlined, '¿Tiene integrantes?', (house['has_members'] ?? false) ? 'Sí' : 'No'),
+                                        ],
+                                      );
                                     },
-                                    icon: Icon(Icons.group),
-                                    label: Text('Gestionar integrantes'),
                                   ),
-                              ],
-                            );
-                          },
-                        ),
-                      ],
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     )
                   : const Center(
                       child: Text('Selecciona un perfil desde el menú lateral'),
