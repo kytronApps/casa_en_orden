@@ -3,6 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:casa_en_orden/features/setup_house/ui/house_info_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:casa_en_orden/services/avatar_service.dart';
+
+
+
 
 class MainMenuScreen extends StatefulWidget {
   const MainMenuScreen({super.key});
@@ -17,6 +21,11 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
   Map<String, dynamic>? _pinnedProfile;
   Map<String, dynamic>? _selectedProfile;
   bool _isLoading = true;
+
+
+
+  late final AvatarService _avatarSvc = AvatarService(Supabase.instance.client);
+final Map<String, String?> _avatarUrls = {};
 
   // Controllers used in the edit bottom sheet
   final _nameCtrl = TextEditingController();
@@ -33,8 +42,50 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchProfiles();
+    _initializeData();
   }
+
+  Future<void> _initializeData() async {
+    await _fetchProfiles();
+    await _preloadAvatars();
+  }
+
+  Future<void> _preloadAvatars() async {
+    if (user == null) return;
+    final Map<String, String?> next = {};
+    for (final p in _profiles) {
+      final id = p['id'] as String;
+      final url = await _avatarSvc.signedUrlForProfile(id);
+      next[id] = url;
+    }
+    if (!mounted) return;
+    setState(() {
+      _avatarUrls
+        ..clear()
+        ..addAll(next);
+    });
+  }
+
+
+Future<void> _changeAvatarFor(String profileId) async {
+  final u = Supabase.instance.client.auth.currentUser;
+  if (u == null) return;
+  try {
+    final url = await _avatarSvc.pickAndUploadForProfile(userId: u.id, profileId: profileId);
+    if (mounted && url != null) {
+      setState(() => _avatarUrls[profileId] = url);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Avatar actualizado')),
+      );
+    }
+  } catch (e) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al subir el avatar: $e')),
+      );
+    }
+  }
+}
 
   Future<void> _fetchProfiles() async {
     if (user == null) return;
@@ -159,12 +210,12 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                   decoration: const InputDecoration(labelText: 'Tipo de suelo'),
                 ),
                 const SizedBox(height: 8),
-                SwitchListTile(
-                  value: _hasGardenTmp,
-                  onChanged: (v) => setState(() => _hasGardenTmp = v),
-                  title: const Text('¿Tiene jardín?'),
-                  contentPadding: EdgeInsets.zero,
-                ),
+               SwitchListTile(
+  value: _hasGardenTmp,
+  onChanged: (v) => setState(() => _hasGardenTmp = v),
+  title: const Text('¿Tiene jardín?'),
+  contentPadding: EdgeInsets.zero,
+),
                 SwitchListTile(
                   value: _hasPetsTmp,
                   onChanged: (v) => setState(() => _hasPetsTmp = v),
@@ -287,29 +338,31 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Menú principal'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const HouseInfoScreen()),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: 'Cerrar sesión',
-            onPressed: () async {
-              await Supabase.instance.client.auth.signOut();
-              if (context.mounted) {
-                Navigator.of(context).pushReplacementNamed('/login');
-              }
-            },
-          ),
-        ],
-      ),
+  title: const Text('Menú principal'),
+  actions: [
+    IconButton(
+      icon: const Icon(Icons.add),
+      tooltip: 'Crear perfil',
+      onPressed: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const HouseInfoScreen()),
+        );
+      },
+    ),
+    IconButton(
+      icon: const Icon(Icons.logout),
+      tooltip: 'Cerrar sesión',
+      onPressed: () async {
+        await Supabase.instance.client.auth.signOut();
+        if (context.mounted) {
+          Navigator.of(context).pushReplacementNamed('/login');
+        }
+      },
+    ),
+  ],
+),
+
       drawer: _profiles.length > 1
           ? Drawer(
               child: ListView(
@@ -348,7 +401,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
               ? const Center(child: Text('No tienes perfiles de limpieza'))
               : (_pinnedProfile != null || _selectedProfile != null)
                   ? RefreshIndicator(
-                      onRefresh: _fetchProfiles,
+                      onRefresh: _initializeData,
                       child: ListView(
                         padding: const EdgeInsets.all(16),
                         children: [
@@ -372,10 +425,40 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                                           ? 'Perfil anclado. Haz clic para ver detalles'
                                           : 'Perfil seleccionado. Haz clic para ver detalles',
                                     ),
-                                    leading: CircleAvatar(
-                                      backgroundColor: Colors.teal.withOpacity(.15),
-                                      child: const Icon(Icons.home, color: Colors.teal),
-                                    ),
+                                   leading: Builder(
+  builder: (context) {
+    final current = (_pinnedProfile ?? _selectedProfile)!;
+    final pid = current['id'] as String;
+    final url = _avatarUrls[pid];
+
+    return InkWell(
+      onTap: () => _changeAvatarFor(pid), // tocar = cambiar foto
+      borderRadius: BorderRadius.circular(24),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          CircleAvatar(
+            radius: 24,
+            backgroundImage: (url != null) ? NetworkImage(url) : null,
+            backgroundColor: Colors.teal.withOpacity(.15),
+            child: (url == null) ? const Icon(Icons.home, color: Colors.teal) : null,
+          ),
+          Positioned(
+            right: -2, bottom: -2,
+            child: Container(
+              padding: const EdgeInsets.all(2),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.camera_alt, size: 12, color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+  },
+),
                                     trailing: (
                                       (_pinnedProfile ?? _selectedProfile)?['user_id'] == user?.id
                                     )

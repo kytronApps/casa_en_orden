@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:casa_en_orden/features/auth/ui/register_screen.dart';
+import 'package:flutter/foundation.dart';
 import 'package:casa_en_orden/features/auth/ui/login_screen.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -21,7 +21,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
 
-  final supabase = Supabase.instance.client;
+  final sb = supabase.Supabase.instance.client;
 
   @override
   void dispose() {
@@ -39,7 +39,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     setState(() => _isLoading = true);
     try {
-      final response = await supabase.auth.signUp(
+      final response = await sb.auth.signUp(
         email: email,
         password: password,
       );
@@ -61,7 +61,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       } else {
         _showError('No se pudo crear la cuenta. Intenta nuevamente.');
       }
-    } on AuthException catch (e) {
+    } on supabase.AuthException catch (e) {
       _showError('Error: ${e.message}');
     } catch (e) {
       _showError('Error inesperado: $e');
@@ -75,6 +75,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
     );
+  }
+
+  Future<void> _signUpWithGoogle() async {
+    if (_isLoading) return;
+    setState(() => _isLoading = true);
+    try {
+      final redirect = kIsWeb ? null : 'casaenorden://auth-callback';
+      await sb.auth.signInWithOAuth(
+  supabase.OAuthProvider.google,
+  redirectTo: redirect,
+);
+      // En Web redirige/reload; en móvil volverá por deep link y AuthStateChange en Login/Main puede manejar navegación.
+    } on supabase.AuthException catch (e) {
+      _showError(e.message);
+    } catch (e) {
+      _showError('No se pudo continuar con Google.');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
@@ -246,6 +265,35 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                     : const Text('Crear cuenta'),
                               ),
                             ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(child: Divider(color: Colors.black.withOpacity(.15))),
+                            const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 8.0),
+                              child: Text('o'),
+                            ),
+                            Expanded(child: Divider(color: Colors.black.withOpacity(.15))),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: _isLoading ? null : _signUpWithGoogle,
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            icon: Image.network(
+                              'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg',
+                              width: 20,
+                              height: 20,
+                              errorBuilder: (_, __, ___) => const Icon(Icons.login),
+                            ),
+                            label: const Text('Registrarse con Google'),
+                          ),
+                        ),
                           ],
                         ),
                       ),
@@ -277,7 +325,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 }
 
 class _CircleDecoration extends StatelessWidget {
-  const _CircleDecoration({super.key, this.top, this.bottom, this.left, this.right, required this.size, this.opacity = .08});
+  const _CircleDecoration({this.top, this.bottom, this.left, this.right, required this.size, this.opacity = .08});
   final double? top;
   final double? bottom;
   final double? left;
