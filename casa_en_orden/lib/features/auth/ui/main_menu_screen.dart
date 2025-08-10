@@ -4,7 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:casa_en_orden/features/setup_house/ui/house_info_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:casa_en_orden/services/avatar_service.dart';
-
+import 'package:casa_en_orden/features/auth/ui/calendar_screen.dart';
 
 
 
@@ -368,29 +368,77 @@ Future<void> _changeAvatarFor(String profileId) async {
               child: ListView(
                 padding: EdgeInsets.zero,
                 children: [
-                  const DrawerHeader(
-                    decoration: BoxDecoration(color: Colors.teal),
-                    child: Text('Tus perfiles'),
-                  ),
-                  ..._profiles.map((profile) => ListTile(
-                        title: Text(profile['name'] ?? 'Perfil sin nombre'),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.push_pin_outlined),
-                          tooltip: 'Anclar perfil',
-                          onPressed: () async {
-                            final prefs = await SharedPreferences.getInstance();
-                            await prefs.setString('pinned_profile_id', profile['id']);
-                            _fetchProfiles();
-                          },
+                  DrawerHeader(
+                    decoration: const BoxDecoration(color: Colors.teal),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        CircleAvatar(
+                          radius: 28,
+                          backgroundImage: (() {
+                            final current = (_pinnedProfile ?? _selectedProfile);
+                            if (current == null) return null;
+                            final pid = current['id'] as String;
+                            final url = _avatarUrls[pid];
+                            return (url != null) ? NetworkImage(url) : null;
+                          })(),
+                          child: (() {
+                            final current = (_pinnedProfile ?? _selectedProfile);
+                            if (current == null) return const Icon(Icons.person, color: Colors.white);
+                            final pid = current['id'] as String;
+                            final url = _avatarUrls[pid];
+                            return (url == null) ? const Icon(Icons.person, color: Colors.white) : null;
+                          })(),
                         ),
-                        onTap: () {
-                          setState(() {
-                            _pinnedProfile = null;
-                            _selectedProfile = profile;
-                          });
-                          Navigator.pop(context);
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Text('Perfil seleccionado', style: TextStyle(color: Colors.white70)),
+                              Text(
+                                (_pinnedProfile ?? _selectedProfile)?['name'] ?? 'Sin nombre',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  ..._profiles.map((profile) {
+                    final id = profile['id'] as String;
+                    final isSelected = (_pinnedProfile == null && _selectedProfile?['id'] == id) ||
+                        (_pinnedProfile != null && _pinnedProfile?['id'] == id);
+                    return ListTile(
+                      leading: CircleAvatar(
+                        backgroundImage: (_avatarUrls[id] != null) ? NetworkImage(_avatarUrls[id]!) : null,
+                        child: (_avatarUrls[id] == null) ? const Icon(Icons.person) : null,
+                      ),
+                      title: Text(profile['name'] ?? 'Perfil sin nombre'),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.push_pin_outlined),
+                        tooltip: 'Anclar perfil',
+                        onPressed: () async {
+                          final prefs = await SharedPreferences.getInstance();
+                          await prefs.setString('pinned_profile_id', profile['id']);
+                          _initializeData();
                         },
-                      )),
+                      ),
+                      selected: isSelected,
+                      selectedTileColor: Theme.of(context).colorScheme.secondaryContainer.withOpacity(.3),
+                      onTap: () {
+                        setState(() {
+                          _pinnedProfile = null;
+                          _selectedProfile = profile;
+                        });
+                        Navigator.pop(context);
+                      },
+                    );
+                  }),
                 ],
               ),
             )
@@ -425,47 +473,67 @@ Future<void> _changeAvatarFor(String profileId) async {
                                           ? 'Perfil anclado. Haz clic para ver detalles'
                                           : 'Perfil seleccionado. Haz clic para ver detalles',
                                     ),
-                                   leading: Builder(
-  builder: (context) {
-    final current = (_pinnedProfile ?? _selectedProfile)!;
-    final pid = current['id'] as String;
-    final url = _avatarUrls[pid];
+                                    leading: Builder(
+                                      builder: (context) {
+                                        final current = (_pinnedProfile ?? _selectedProfile)!;
+                                        final pid = current['id'] as String;
+                                        final url = _avatarUrls[pid];
 
-    return InkWell(
-      onTap: () => _changeAvatarFor(pid), // tocar = cambiar foto
-      borderRadius: BorderRadius.circular(24),
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          CircleAvatar(
-            radius: 24,
-            backgroundImage: (url != null) ? NetworkImage(url) : null,
-            backgroundColor: Colors.teal.withOpacity(.15),
-            child: (url == null) ? const Icon(Icons.home, color: Colors.teal) : null,
-          ),
-          Positioned(
-            right: -2, bottom: -2,
-            child: Container(
-              padding: const EdgeInsets.all(2),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.camera_alt, size: 12, color: Colors.white),
-            ),
-          ),
-        ],
-      ),
-    );
-  },
-),
+                                        return InkWell(
+                                          onTap: () => _changeAvatarFor(pid), // tocar = cambiar foto
+                                          borderRadius: BorderRadius.circular(24),
+                                          child: Stack(
+                                            clipBehavior: Clip.none,
+                                            children: [
+                                              CircleAvatar(
+                                                radius: 24,
+                                                backgroundImage: (url != null) ? NetworkImage(url) : null,
+                                                backgroundColor: Colors.teal.withOpacity(.15),
+                                                child: (url == null) ? const Icon(Icons.home, color: Colors.teal) : null,
+                                              ),
+                                              Positioned(
+                                                right: -2,
+                                                bottom: -2,
+                                                child: Container(
+                                                  padding: const EdgeInsets.all(2),
+                                                  decoration: BoxDecoration(
+                                                    color: Theme.of(context).colorScheme.primary,
+                                                    shape: BoxShape.circle,
+                                                  ),
+                                                  child: const Icon(Icons.camera_alt, size: 12, color: Colors.white),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      },
+                                    ),
                                     trailing: (
                                       (_pinnedProfile ?? _selectedProfile)?['user_id'] == user?.id
                                     )
-                                        ? FilledButton.icon(
-                                            onPressed: () => _openEditProfileSheet((_pinnedProfile ?? _selectedProfile)!),
-                                            icon: const Icon(Icons.edit, size: 18),
-                                            label: const Text('Editar'),
+                                        ? Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              OutlinedButton.icon(
+                                                onPressed: () {
+                                                  final current = (_pinnedProfile ?? _selectedProfile)!;
+                                                  Navigator.push(
+                                                    context,
+                                                    MaterialPageRoute(
+                                                      builder: (_) => CalendarScreen(profile: current),
+                                                    ),
+                                                  );
+                                                },
+                                                icon: const Icon(Icons.calendar_today, size: 18),
+                                                label: const Text('Calendario'),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              FilledButton.icon(
+                                                onPressed: () => _openEditProfileSheet((_pinnedProfile ?? _selectedProfile)!),
+                                                icon: const Icon(Icons.edit, size: 18),
+                                                label: const Text('Editar'),
+                                              ),
+                                            ],
                                           )
                                         : null,
                                   ),
