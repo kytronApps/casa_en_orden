@@ -142,7 +142,9 @@ class CalendarService {
       final z = m['zone_id'] as String;
       (byZone[z] ??= []).add(m);
     }
-    byZone.values.forEach((l) => l.sort((a,b)=> (a['order_index'] as int).compareTo(b['order_index'] as int)));
+    for (var l in byZone.values) {
+      l.sort((a,b)=> (a['order_index'] as int).compareTo(b['order_index'] as int));
+    }
 
     final out = <Map<String, dynamic>>[];
     for (final sc in schedules) {

@@ -62,6 +62,23 @@ _residents = await _svc.getResidentsByHouse(houseId);
     await _load();
   }
 
+  String _monthNameEs(int m) {
+    const meses = [
+      '', 'Enero','Febrero','Marzo','Abril','Mayo','Junio',
+      'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'
+    ];
+    return meses[m];
+  }
+
+  String _weekTitle() {
+    final monday = _anchor.subtract(Duration(days: _anchor.weekday - 1));
+    final sunday = monday.add(const Duration(days: 6));
+    final month = _monthNameEs(monday.month);
+    final year = monday.year;
+    String dd(int d) => d.toString().padLeft(2, '0');
+    return '$month $year • Semana del ${dd(monday.day)}–${dd(sunday.day)}';
+  }
+
   bool get _isDirty => _persisted.length != _rows.length ||
       !_persisted.every((p) => _rows.any((r) =>
           r['zone_id']==p['zone_id'] &&
@@ -85,128 +102,194 @@ _residents = await _svc.getResidentsByHouse(houseId);
   }
 
   Future<void> _openAddTaskSheet() async {
-  if (_zones.isEmpty || _residents.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Primero crea zonas y residentes en este perfil.')),
-    );
-    return;
-  }
-
-  final iso = _svc.isoWeekYear(_anchor);
-  int day = DateTime.now().weekday; // 1..7
-  String? zoneId = _zones.first['id'] as String?;
-  String? residentId = _residents.first['id'] as String?;
-
-  await showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-    ),
-    builder: (ctx) {
-      return Padding(
-        padding: EdgeInsets.only(
-          left: 16, right: 16, top: 12,
-          bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
+    if (_zones.isEmpty || _residents.isEmpty) {
+      await showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
         ),
-        child: StatefulBuilder(
-          builder: (ctx, setModalState) => Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40, height: 4, margin: const EdgeInsets.only(bottom: 12),
-                  decoration: BoxDecoration(
-                    color: Theme.of(ctx).colorScheme.outlineVariant,
-                    borderRadius: BorderRadius.circular(2),
+        builder: (ctx) {
+          final zoneCtrl = TextEditingController();
+          final residentCtrl = TextEditingController();
+          return Padding(
+            padding: EdgeInsets.only(
+              left: 16, right: 16, top: 12,
+              bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40, height: 4, margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: Theme.of(ctx).colorScheme.outlineVariant,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  Text('Antes de añadir tareas…', style: Theme.of(ctx).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 8),
+                  const Text('Necesitas al menos 1 zona y 1 residente en este perfil.'),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: zoneCtrl,
+                    decoration: const InputDecoration(labelText: 'Nueva zona (opcional)'),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: residentCtrl,
+                    decoration: const InputDecoration(labelText: 'Nuevo residente (opcional)'),
+                  ),
+                  const SizedBox(height: 16),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: FilledButton.icon(
+                      icon: const Icon(Icons.check),
+                      label: const Text('Crear y continuar'),
+                      onPressed: () async {
+                        final houseId = widget.profile['house_id'] as String;
+                        if (zoneCtrl.text.trim().isNotEmpty) {
+                          await Supabase.instance.client
+                              .from('zones')
+                              .insert({'house_id': houseId, 'name': zoneCtrl.text.trim()});
+                        }
+                        if (residentCtrl.text.trim().isNotEmpty) {
+                          await Supabase.instance.client
+                              .from('residents')
+                              .insert({'house_id': houseId, 'name': residentCtrl.text.trim()});
+                        }
+                        if (mounted) Navigator.pop(ctx);
+                        await _load();
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+      return;
+    }
+
+    final iso = _svc.isoWeekYear(_anchor);
+    int day = DateTime.now().weekday; // 1..7
+    String? zoneId = _zones.first['id'] as String?;
+    String? residentId = _residents.first['id'] as String?;
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 16, right: 16, top: 12,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
+          ),
+          child: StatefulBuilder(
+            builder: (ctx, setModalState) => Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40, height: 4, margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: Theme.of(ctx).colorScheme.outlineVariant,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
                 ),
-              ),
-              Text('Añadir tarea', style: Theme.of(ctx).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600)),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<int>(
-                value: day,
-                decoration: const InputDecoration(labelText: 'Día de la semana'),
-                items: const [
-                  DropdownMenuItem(value: 1, child: Text('Lunes')),
-                  DropdownMenuItem(value: 2, child: Text('Martes')),
-                  DropdownMenuItem(value: 3, child: Text('Miércoles')),
-                  DropdownMenuItem(value: 4, child: Text('Jueves')),
-                  DropdownMenuItem(value: 5, child: Text('Viernes')),
-                  DropdownMenuItem(value: 6, child: Text('Sábado')),
-                  DropdownMenuItem(value: 7, child: Text('Domingo')),
-                ],
-                onChanged: (v) => setModalState(() => day = v ?? day),
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                value: zoneId,
-                decoration: const InputDecoration(labelText: 'Zona'),
-                items: _zones.map((z) => DropdownMenuItem(
-                  value: z['id'] as String, child: Text(z['name']?.toString() ?? '(zona)'),
-                )).toList(),
-                onChanged: (v) => setModalState(() => zoneId = v),
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                value: residentId,
-                decoration: const InputDecoration(labelText: 'Residente'),
-                items: _residents.map((r) => DropdownMenuItem(
-                  value: r['id'] as String, child: Text(r['name']?.toString() ?? '(residente)'),
-                )).toList(),
-                onChanged: (v) => setModalState(() => residentId = v),
-              ),
-              const SizedBox(height: 16),
-              Align(
-                alignment: Alignment.centerRight,
-                child: FilledButton.icon(
-                  icon: const Icon(Icons.add_task),
-                  label: const Text('Añadir'),
-                  onPressed: () {
-                    if (zoneId == null || residentId == null) return;
-
-                    // evita duplicado: una zona por día
-                    _rows.removeWhere((r) => r['zone_id'] == zoneId && r['day_of_week'] == day);
-
-                    final zone = _zones.firstWhere((z) => z['id'] == zoneId, orElse: () => {});
-                    final resident = _residents.firstWhere((r) => r['id'] == residentId, orElse: () => {});
-
-                    _rows.add({
-                      'profile_id': widget.profile['id'],
-                      'zone_id': zoneId,
-                      'resident_id': residentId,
-                      'week_number': iso.week,
-                      'week_year': iso.year,
-                      'day_of_week': day,
-                      'is_fixed': false,
-                      '_zone': zone,
-                      '_resident': resident,
-                    });
-
-                    setState(() {}); // marca cambios
-                    Navigator.pop(ctx);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Tarea agregada a la semana')),
-                    );
-                  },
+                Text('Añadir tarea', style: Theme.of(ctx).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<int>(
+                  value: day,
+                  decoration: const InputDecoration(labelText: 'Día de la semana'),
+                  items: const [
+                    DropdownMenuItem(value: 1, child: Text('Lunes')),
+                    DropdownMenuItem(value: 2, child: Text('Martes')),
+                    DropdownMenuItem(value: 3, child: Text('Miércoles')),
+                    DropdownMenuItem(value: 4, child: Text('Jueves')),
+                    DropdownMenuItem(value: 5, child: Text('Viernes')),
+                    DropdownMenuItem(value: 6, child: Text('Sábado')),
+                    DropdownMenuItem(value: 7, child: Text('Domingo')),
+                  ],
+                  onChanged: (v) => setModalState(() => day = v ?? day),
                 ),
-              ),
-            ],
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: zoneId,
+                  decoration: const InputDecoration(labelText: 'Zona'),
+                  items: _zones.map((z) => DropdownMenuItem(
+                    value: z['id'] as String,
+                    child: Text(z['name']?.toString() ?? '(zona)'),
+                  )).toList(),
+                  onChanged: (v) => setModalState(() => zoneId = v),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: residentId,
+                  decoration: const InputDecoration(labelText: 'Residente'),
+                  items: _residents.map((r) => DropdownMenuItem(
+                    value: r['id'] as String,
+                    child: Text(r['name']?.toString() ?? '(residente)'),
+                  )).toList(),
+                  onChanged: (v) => setModalState(() => residentId = v),
+                ),
+                const SizedBox(height: 16),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: FilledButton.icon(
+                    icon: const Icon(Icons.add_task),
+                    label: const Text('Añadir'),
+                    onPressed: () {
+                      if (zoneId == null || residentId == null) return;
+
+                      _rows.removeWhere((r) => r['zone_id'] == zoneId && r['day_of_week'] == day);
+
+                      final zone = _zones.firstWhere((z) => z['id'] == zoneId, orElse: () => {});
+                      final resident = _residents.firstWhere((r) => r['id'] == residentId, orElse: () => {});
+
+                      _rows.add({
+                        'profile_id': widget.profile['id'],
+                        'zone_id': zoneId,
+                        'resident_id': residentId,
+                        'week_number': iso.week,
+                        'week_year': iso.year,
+                        'day_of_week': day,
+                        'is_fixed': false,
+                        '_zone': zone,
+                        '_resident': resident,
+                      });
+
+                      setState(() {});
+                      Navigator.pop(ctx);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Tarea agregada a la semana')),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-      );
-    },
-  );
-}
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final iso = _svc.isoWeekYear(_anchor);
-
     return Scaffold(
       appBar: AppBar(
-        title: Text('Calendario • Semana ${iso.week} / ${iso.year}'),
+        title: Text(_weekTitle()),
         actions: [
           IconButton(onPressed: _prevWeek, icon: const Icon(Icons.chevron_left)),
           IconButton(onPressed: _nextWeek, icon: const Icon(Icons.chevron_right)),
